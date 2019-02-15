@@ -10,9 +10,9 @@ macro_rules! parse_bytes {
             let mut si = s.split(',');
             let mut i = 0;
             let res = ( $( {
-                    let ss = si.next().ok_or(ParseError::EndOfString)?;
-                    let arg = ss.parse::<$x>().map_err(|_| ParseError::Arg(i))?;
                     i += 1;
+                    let ss = si.next().ok_or(ParseError::EndOfString)?;
+                    let arg = ss.parse::<$x>().map_err(|_| ParseError::Arg(i - 1))?;
                     arg
             }, )* );
             if si.next().is_some() {
