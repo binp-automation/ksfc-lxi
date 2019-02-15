@@ -1,45 +1,127 @@
-extern crate tokio;
+pub mod error;
 
-#[cfg(test)]
-mod tests {
-    use std::net::{SocketAddr, IpAddr, Ipv4Addr};
+#[macro_use]
+mod parse;
 
-    use tokio::prelude::*;
-    use tokio::net::{TcpListener, TcpStream};
-    use tokio::{io as tokio_io};
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate bitflags;
 
-    pub static LOCALHOST: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+use std::io;
+use std::ops::{Deref, DerefMut};
+use std::time::{Duration};
 
-    #[test]
-    fn client_server() {
-        let listener = TcpListener::bind(&SocketAddr::new(LOCALHOST, 0)).unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = listener.incoming()
-        .map_err(|e| panic!(e))
-        .take(1)
-        .for_each(|sock| {
-            let (reader, writer) = sock.split();
-            tokio::spawn(
-                tokio_io::copy(reader, writer)
-                .map(|_| ())
-                .map_err(|e| panic!(e))
-            )
-        });
+use lxi::LxiDevice;
 
-        let client = TcpStream::connect(&address)
-        .and_then(|stream| {
-            tokio_io::write_all(stream, b"hello, server\n")
-        })
-        .and_then(|(stream, text)| {
-            let buf = vec!(0; text.len());
-            tokio_io::read_exact(stream, buf)
-            .map(move |(stream, buf)| (stream, text, buf))
-        })
-        .map(|(_, text, buf)| {
-            assert_eq!(text, &buf[..]);
-        })
-        .map_err(|e| panic!(e));
+use crate::parse::{ParseError};
 
-        tokio::run(server.join(client).map(|_| ()));
+
+bitflags! {
+    pub struct EventReg: u8 {
+        const OpComplete = 0b00000001;
+        const QueryErr   = 0b00000100;
+        const DevSpecErr = 0b00001000;
+        const ExecErr    = 0b00010000;
+        const CmdErr     = 0b00100000;
+        const PowerOn    = 0b10000000;
     }
 }
+
+pub struct KsFc {
+    device: LxiDevice,
+}
+
+impl KsFc {
+    pub fn new(host: &str, port: Option<u16>) -> io::Result<Self> {
+        let mut device = LxiDevice::new((
+            String::from(host),
+            port.unwrap_or(5025),
+        ), Some(Duration::from_millis(2000)));
+        device.connect()?;
+        Ok(KsFc { device })
+    }
+
+    pub fn api(&mut self) -> ApiCalls {
+        ApiCalls { orig: self }
+    }
+}
+
+impl Deref for KsFc {
+    type Target = LxiDevice;
+    fn deref(&self) -> &Self::Target {
+        &self.device
+    }
+}
+
+impl DerefMut for KsFc {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.device
+    }
+}
+
+pub struct ApiCalls<'a> {
+    orig: &'a mut KsFc,
+}
+
+impl<'a> ApiCalls<'a> {
+    pub fn abort(&mut self) -> io::Result<()> {
+        self.orig.send(b"ABOR")
+    }
+
+    pub fn autoscale(&mut self) -> io::Result<()> {
+        self.orig.send(b"AUT")
+    }
+
+    pub fn fetch(&mut self) -> io::Result<Vec<u8>> {
+        self.orig.send(b"FETC?").and_then(|()| self.orig.receive())
+    }
+
+    pub fn cal(&mut self) -> io::Result<bool> {
+        self.orig.send(b"*CAL?").and_then(|()| {
+            self.orig.receive_timeout(Some(Duration::from_secs(20)))
+        }).and_then(|buf| {
+            parse_bytes!(buf, (i32)).map(|t| t.0 == 0)
+            .map_err(|e| e.into())
+        })
+    }
+
+    pub fn cls(&mut self) -> io::Result<()> {
+        self.orig.send(b"*CLS")
+    }
+
+    pub fn ese(&mut self) -> EseCalls {
+        EseCalls { orig: self.orig }
+    }
+}
+
+pub struct EseCalls<'a> {
+    orig: &'a mut KsFc,
+}
+
+impl<'a> EseCalls<'a> {
+    pub fn get(&mut self) -> io::Result<EventReg> {
+        self.orig.send(b"*ESE?")
+        .and_then(|()| self.orig.receive())
+        .and_then(|buf| parse_bytes!(buf, (u8)).map_err(|e| e.into()))
+        .map(|b| EventReg::from_bits_truncate(b.0))
+    }
+
+    pub fn set(&mut self, ereg: EventReg) -> io::Result<()> {
+        self.orig.send(format!("*ESE {}", ereg.bits).as_bytes())
+    }
+}
+
+pub struct SystemCalls<'a> {
+    orig: &'a mut KsFc,
+}
+
+impl<'a> SystemCalls<'a> {
+    pub fn error(&mut self) -> io::Result<EventReg> {
+        self.orig.send(b"*ESE?")
+        .and_then(|()| self.orig.receive())
+        .and_then(|buf| parse_bytes!(buf, (u8)).map_err(|e| e.into()))
+        .map(|b| EventReg::from_bits_truncate(b.0))
+    }
+}
+

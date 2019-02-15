@@ -1,6 +1,6 @@
 [package]
 name = "ksfc-lxi"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Alexey Gerasev <alexey.gerasev@gmail.com>"]
 edition = "2018"
 
@@ -13,4 +13,6 @@ name = "dev_test"
 path = "src/main.rs"
 
 [dependencies]
-tokio = "0.1"
+lxi = { git = "https://github.com/nthend/lxi-rs.git", ref = "ca4af5dc1215d262b1c3fa4029060f32d221bbb8" }
+lazy_static = "1.2.0"
+bitflags = "1.0"
