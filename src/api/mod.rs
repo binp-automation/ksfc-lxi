@@ -79,7 +79,7 @@ impl<'a> Handle<'a> {
         self.send(b"AUT")
     }
 
-    pub fn fetch<'b: 'a>(&'b mut self) -> io::Result<Result<f64, Error>> {
+    pub fn fetch(&mut self) -> io::Result<Result<f64, Error>> {
         self.send(b"FETC?")
         .and_then(|()| self.receive())
         .and_then(|buf| {
@@ -102,7 +102,7 @@ impl<'a> Handle<'a> {
                 _ => Err(e)
             }
         })
-        .and_then(move |v| {
+        .and_then(|v| {
             match v {
                 Some(v) => Ok(Ok(v)),
                 None => {
@@ -137,40 +137,40 @@ impl<'a> Handle<'a> {
         self.send(b"*CLS")
     }
 
-    pub fn ese<'b: 'a>(&'b mut self) -> EseHandle<'b> {
-        EseHandle::<'b>::new(self)
+    pub fn ese<'b>(&'b mut self) -> EseHandle<'a, 'b> where 'a: 'b {
+        EseHandle::new(self)
     }
 
     // Subsystems
 
-    pub fn system<'b: 'a>(&'b mut self) -> system::Handle<'b> {
-        system::Handle::<'b>::new(self)
+    pub fn system<'b>(&'b mut self) -> system::Handle<'a, 'b> where 'a: 'b {
+        system::Handle::new(self)
     }
 }
 
-pub struct EseHandle<'a> {
-    base: &'a mut Handle<'a>,
+pub struct EseHandle<'a, 'b> where 'a: 'b {
+    base: &'b mut Handle<'a>,
 }
 
-impl<'a> EseHandle<'a> {
-    pub fn new(base: &'a mut Handle<'a>) -> Self {
+impl<'b, 'a: 'b> EseHandle<'a, 'b> {
+    pub fn new(base: &'b mut Handle<'a>) -> Self {
         Self { base }
     }
 }
 
-impl<'a> Deref for EseHandle<'a> {
+impl<'b, 'a: 'b> Deref for EseHandle<'a, 'b> {
     type Target = Handle<'a>;
     fn deref(&self) -> &Self::Target {
         &self.base
     }
 }
-impl<'a> DerefMut for EseHandle<'a> {
+impl<'b, 'a: 'b> DerefMut for EseHandle<'a, 'b> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.base
     }
 }
 
-impl<'a> EseHandle<'a> {
+impl<'b, 'a: 'b> EseHandle<'a, 'b> {
     pub fn get(&mut self) -> io::Result<EventReg> {
         self.send(b"*ESE?")
         .and_then(|()| self.dev.receive())
