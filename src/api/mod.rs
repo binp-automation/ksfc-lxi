@@ -2,11 +2,9 @@ pub mod system;
 
 
 use std::io;
-use std::ops::{Deref, DerefMut};
-use std::time::{Duration};
 
 use crate::parse::{ParseError};
-use crate::traits::{Handle as HandleTrait};
+use crate::handle::{Handle as HandleTrait, HandleParams};
 use crate::types::*;
 use crate::constants::*;
 use crate::{Fc};
@@ -15,12 +13,12 @@ use crate::error::{Error};
 
 pub struct Handle<'a> {
     dev: &'a mut Fc,
-    to: Option<Option<Duration>>,
+    par: HandleParams,
 }
 
 impl<'a> Handle<'a> {
-    pub(crate) fn new(dev: &'a mut Fc) -> Self {
-        Handle { dev, to: None }
+    pub fn new(dev: &'a mut Fc) -> Self {
+        Handle { dev, par: HandleParams::new() }
     }
 }
 
@@ -34,37 +32,11 @@ impl<'a> HandleTrait for Handle<'a> {
         self.dev
     }
 
-    fn send(&mut self, data: &[u8]) -> io::Result<()> {
-        match self.to {
-            Some(to) => self.dev.send_timeout(data, to),
-            None => self.dev.send(data),
-        }
+    fn params(&self) -> &HandleParams {
+        &self.par
     }
-    fn receive(&mut self) -> io::Result<Vec<u8>> {
-        match self.to {
-            Some(to) => self.dev.receive_timeout(to),
-            None => self.dev.receive(),
-        }
-    }
-    fn send_timeout(&mut self, data: &[u8], to: Option<Duration>) -> io::Result<()> {
-        self.dev.send_timeout(data, to)
-    }
-    fn receive_timeout(&mut self, to: Option<Duration>) -> io::Result<Vec<u8>> {
-        self.dev.receive_timeout(to)
-    }
-
-    fn with_timeout(mut self, to: Option<Duration>) -> Self {
-        self.set_timeout(to);
-        self
-    }
-    fn set_timeout(&mut self, to: Option<Duration>) {
-        self.to = Some(to);
-    }
-    fn reset_timeout(&mut self) {
-        self.to = None;
-    }
-    fn timeout(&self) -> Option<Option<Duration>> {
-        self.to
+    fn params_mut(&mut self) -> &mut HandleParams {
+        &mut self.par
     }
 }
 
@@ -79,11 +51,10 @@ impl<'a> Handle<'a> {
         self.send(b"AUT")
     }
 
-    pub fn fetch(&mut self) -> io::Result<Result<f64, Error>> {
-        self.send(b"FETC?")
-        .and_then(|()| self.receive())
+    fn read_value(&mut self) -> io::Result<Result<f64, Error>> {
+        self.receive()
         .and_then(|buf| {
-            parse_bytes!(&buf, f64).map(|v| v.0).map_err(|e| e.into())
+            parse_types!(&buf, f64).map(|v| v.0).map_err(|e| e.into())
             .map(|v| {
                 if v >= ERROR_VALUE {
                     None
@@ -118,17 +89,39 @@ impl<'a> Handle<'a> {
         })
     }
 
-    pub fn initiate(&mut self) -> io::Result<()> {
+    pub fn fetch(&mut self) -> io::Result<Result<f64, Error>> {
+        self.send(b"FETC?").and_then(|()| self.read_value())
+    }
+
+    pub fn initiate(&mut self) -> io::Result<Result<(), Error>> {
         self.send(b"INIT")
+        .and_then(|()| self.system().error())
+        .map(|e| match e {
+            Some(e) => Err(e),
+            None => Ok(()),
+        })
+    }
+
+    pub fn read(&mut self) -> io::Result<Result<f64, Error>> {
+        self.send(b"READ?").and_then(|()| self.read_value())
+    }
+
+    pub fn r(&mut self, max_count: usize) -> io::Result<Vec<u8>> {
+        self.send(format!("R? {}", max_count).as_bytes())
+        .and_then(|()| self.receive())
     }
 
     // IEEE-488 Common commands
 
     pub fn cal(&mut self) -> io::Result<bool> {
         self.send(b"*CAL?").and_then(|()| {
-            self.receive_timeout(Some(CAL_TIMEOUT))
+            if self.timeout() >= CAL_TIMEOUT {
+                self.receive()
+            } else {
+                self.receive_timeout(CAL_TIMEOUT)
+            }
         }).and_then(|buf| {
-            parse_bytes!(&buf, i32).map(|t| t.0 == 0)
+            parse_types!(&buf, i32).map(|t| t.0 == 0)
             .map_err(|e| e.into())
         })
     }
@@ -138,43 +131,55 @@ impl<'a> Handle<'a> {
     }
 
     pub fn ese<'b>(&'b mut self) -> EseHandle<'a, 'b> where 'a: 'b {
-        EseHandle::new(self)
+        EseHandle::new(self, self.par.clone())
+    }
+
+    pub fn rst(&mut self) -> io::Result<()> {
+        self.send(b"*RST")
     }
 
     // Subsystems
 
     pub fn system<'b>(&'b mut self) -> system::Handle<'a, 'b> where 'a: 'b {
-        system::Handle::new(self)
+        system::Handle::new(self, self.par.clone())
     }
 }
 
 pub struct EseHandle<'a, 'b> where 'a: 'b {
     base: &'b mut Handle<'a>,
+    par: HandleParams,
 }
 
 impl<'b, 'a: 'b> EseHandle<'a, 'b> {
-    pub fn new(base: &'b mut Handle<'a>) -> Self {
-        Self { base }
+    pub fn new(base: &'b mut Handle<'a>, par: HandleParams) -> Self {
+        Self { base, par }
     }
 }
 
-impl<'b, 'a: 'b> Deref for EseHandle<'a, 'b> {
-    type Target = Handle<'a>;
-    fn deref(&self) -> &Self::Target {
-        &self.base
+impl<'b, 'a: 'b> HandleTrait for EseHandle<'a, 'b> {
+    type Device = Fc;
+
+    fn device(&self) -> &Self::Device {
+        self.base.device()
+    }
+    fn device_mut(&mut self) -> &mut Self::Device {
+        self.base.device_mut()
+    }
+
+    fn params(&self) -> &HandleParams {
+        &self.par
+    }
+    fn params_mut(&mut self) -> &mut HandleParams {
+        &mut self.par
     }
 }
-impl<'b, 'a: 'b> DerefMut for EseHandle<'a, 'b> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.base
-    }
-}
+
 
 impl<'b, 'a: 'b> EseHandle<'a, 'b> {
     pub fn get(&mut self) -> io::Result<EventReg> {
         self.send(b"*ESE?")
-        .and_then(|()| self.dev.receive())
-        .and_then(|buf| parse_bytes!(&buf, u8).map_err(|e| e.into()))
+        .and_then(|()| self.receive())
+        .and_then(|buf| parse_types!(&buf, u8).map_err(|e| e.into()))
         .map(|b| EventReg::from_bits_truncate(b.0))
     }
 

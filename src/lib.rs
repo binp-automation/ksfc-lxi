@@ -3,7 +3,7 @@ pub mod error;
 #[macro_use]
 mod parse;
 mod constants;
-pub mod traits;
+pub mod handle;
 pub mod types;
 pub mod api;
 
@@ -25,11 +25,11 @@ pub struct Fc {
 }
 
 impl Fc {
-    pub fn new(host: &str, port: Option<u16>) -> io::Result<Self> {
+    pub fn new(host: &str, port: Option<u16>, timeout: Duration) -> io::Result<Self> {
         let mut device = LxiDevice::new((
             String::from(host),
             port.unwrap_or(5025),
-        ), Some(Duration::from_secs(10)));
+        ), Some(timeout));
         device.connect()?;
         Ok(Fc { device })
     }

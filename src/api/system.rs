@@ -1,7 +1,8 @@
 use std::io;
-use std::ops::{Deref, DerefMut};
 
+use crate::{Fc};
 use crate::parse::{ParseError};
+use crate::handle::{Handle as HandleTrait, HandleParams};
 use crate::api::{Handle as BaseHandle};
 use crate::error::{Error};
 use crate::constants::*;
@@ -9,34 +10,41 @@ use crate::constants::*;
 
 pub struct Handle<'a, 'b> where 'a: 'b {
     base: &'b mut BaseHandle<'a>,
+    par: HandleParams,
 }
 
 impl<'b, 'a: 'b> Handle<'a, 'b> {
-    pub fn new(base: &'b mut BaseHandle<'a>) -> Self {
-        Self { base }
+    pub fn new(base: &'b mut BaseHandle<'a>, par: HandleParams) -> Self {
+        Self { base, par }
     }
 }
 
-impl<'b, 'a: 'b> Deref for Handle<'a, 'b> {
-    type Target = BaseHandle<'a>;
-    fn deref(&self) -> &Self::Target {
-        &self.base
+impl<'b, 'a: 'b> HandleTrait for Handle<'a, 'b> {
+    type Device = Fc;
+
+    fn device(&self) -> &Self::Device {
+        self.base.device()
     }
-}
-impl<'b, 'a: 'b> DerefMut for Handle<'a, 'b> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.base
+    fn device_mut(&mut self) -> &mut Self::Device {
+        self.base.device_mut()
+    }
+
+    fn params(&self) -> &HandleParams {
+        &self.par
+    }
+    fn params_mut(&mut self) -> &mut HandleParams {
+        &mut self.par
     }
 }
 
 impl<'b, 'a: 'b> Handle<'a, 'b> {
     pub fn error(&mut self) -> io::Result<Option<Error>> {
-        self.dev.send(b"SYST:ERR?")
-        .and_then(|()| self.dev.receive())
+        self.send(b"SYST:ERR?")
+        .and_then(|()| self.receive())
         .and_then(|buf| {
             buf.splitn(2, |c| *c == b',').next().ok_or(ParseError::EndOfString)
             .and_then(|part| {
-                parse_bytes!(part, i32).map(|v| v.0).map_err(|e| e.into())
+                parse_types!(part, i32).map(|v| v.0).map_err(|e| e.into())
             }).map_err(|e| e.into())
         })
         .and_then(|code| {

@@ -255,6 +255,7 @@ lazy_static! {
     };
 }
 
+#[derive(Clone, Eq, PartialEq)]
 pub struct Error {
 	code: i32,
 }
