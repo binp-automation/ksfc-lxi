@@ -13,6 +13,6 @@ name = "dev_test"
 path = "src/main.rs"
 
 [dependencies]
-lxi = { git = "https://github.com/nthend/lxi-rs.git", ref = "ca4af5dc1215d262b1c3fa4029060f32d221bbb8" }
+lxi = "0.1.2"
 lazy_static = "1.2.0"
 bitflags = "1.0"

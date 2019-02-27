@@ -2,7 +2,7 @@ use std::io;
 use std::ops::{DerefMut};
 use std::time::{Duration};
 
-use lxi::LxiDevice;
+use lxi::{LxiDevice, LxiData};
 
 
 pub trait Handle: Sized {
@@ -20,7 +20,7 @@ pub trait Handle: Sized {
             None => self.device_mut().send(data),
         }
     }
-    fn receive(&mut self) -> io::Result<Vec<u8>> {
+    fn receive(&mut self) -> io::Result<LxiData> {
         match self.params().to {
             Some(to) => self.device_mut().receive_timeout(Some(to)),
             None => self.device_mut().receive(),
@@ -29,7 +29,7 @@ pub trait Handle: Sized {
     fn send_timeout(&mut self, data: &[u8], to: Duration) -> io::Result<()> {
         self.device_mut().send_timeout(data, Some(to))
     }
-    fn receive_timeout(&mut self, to: Duration) -> io::Result<Vec<u8>> {
+    fn receive_timeout(&mut self, to: Duration) -> io::Result<LxiData> {
         self.device_mut().receive_timeout(Some(to))
     }
 

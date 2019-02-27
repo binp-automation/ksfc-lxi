@@ -1,5 +1,7 @@
 use std::io;
 
+use lxi::{LxiData};
+
 use crate::{Fc};
 use crate::parse::{ParseError};
 use crate::handle::{Handle as HandleTrait, HandleParams};
@@ -41,6 +43,15 @@ impl<'b, 'a: 'b> Handle<'a, 'b> {
     pub fn error(&mut self) -> io::Result<Option<Error>> {
         self.send(b"SYST:ERR?")
         .and_then(|()| self.receive())
+        .and_then(|data| {
+            match data {
+                LxiData::Text(buf) => Ok(buf),
+                LxiData::Bin(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("The response is in binary format"),
+                )),
+            }
+        })
         .and_then(|buf| {
             buf.splitn(2, |c| *c == b',').next().ok_or(ParseError::EndOfString)
             .and_then(|part| {

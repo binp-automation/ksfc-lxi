@@ -3,6 +3,8 @@ pub mod system;
 
 use std::io;
 
+use lxi::{LxiData};
+
 use crate::parse::{ParseError};
 use crate::handle::{Handle as HandleTrait, HandleParams};
 use crate::types::*;
@@ -53,6 +55,15 @@ impl<'a> Handle<'a> {
 
     fn read_value(&mut self) -> io::Result<Result<f64, Error>> {
         self.receive()
+        .and_then(|data| {
+            match data {
+                LxiData::Text(buf) => Ok(buf),
+                LxiData::Bin(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("The response is in binary format"),
+                )),
+            }
+        })
         .and_then(|buf| {
             parse_types!(&buf, f64).map(|v| v.0).map_err(|e| e.into())
             .map(|v| {
@@ -62,16 +73,6 @@ impl<'a> Handle<'a> {
                     Some(v)
                 }
             })
-        })
-        .or_else(|e: io::Error| -> io::Result<Option<f64>> {
-            println!("{:?}", e);
-            match e.kind() {
-                io::ErrorKind::WouldBlock |
-                io::ErrorKind::TimedOut => {
-                    Ok(None)
-                },
-                _ => Err(e)
-            }
         })
         .and_then(|v| {
             match v {
@@ -106,21 +107,44 @@ impl<'a> Handle<'a> {
         self.send(b"READ?").and_then(|()| self.read_value())
     }
 
-    pub fn r(&mut self, max_count: usize) -> io::Result<Vec<u8>> {
-        self.send(format!("R? {}", max_count).as_bytes())
+    pub fn r(&mut self, max_count: Option<usize>) -> io::Result<Vec<u8>> {
+        match max_count {
+            Some(n) => self.send(format!("R? {}", n).as_bytes()),
+            None => self.send(b"R?"),
+        }
         .and_then(|()| self.receive())
+        .and_then(|data| {
+            match data {
+                LxiData::Text(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("The response is in text format"),
+                )),
+                LxiData::Bin(buf) => Ok(buf),
+            }
+        })
     }
 
     // IEEE-488 Common commands
 
     pub fn cal(&mut self) -> io::Result<bool> {
-        self.send(b"*CAL?").and_then(|()| {
+        self.send(b"*CAL?")
+        .and_then(|()| {
             if self.timeout() >= CAL_TIMEOUT {
                 self.receive()
             } else {
                 self.receive_timeout(CAL_TIMEOUT)
             }
-        }).and_then(|buf| {
+        })
+        .and_then(|data| {
+            match data {
+                LxiData::Text(buf) => Ok(buf),
+                LxiData::Bin(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("The response is in binary format"),
+                )),
+            }
+        })
+        .and_then(|buf| {
             parse_types!(&buf, i32).map(|t| t.0 == 0)
             .map_err(|e| e.into())
         })
@@ -179,6 +203,15 @@ impl<'b, 'a: 'b> EseHandle<'a, 'b> {
     pub fn get(&mut self) -> io::Result<EventReg> {
         self.send(b"*ESE?")
         .and_then(|()| self.receive())
+        .and_then(|data| {
+            match data {
+                LxiData::Text(buf) => Ok(buf),
+                LxiData::Bin(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("The response is in binary format"),
+                )),
+            }
+        })
         .and_then(|buf| parse_types!(&buf, u8).map_err(|e| e.into()))
         .map(|b| EventReg::from_bits_truncate(b.0))
     }

@@ -106,8 +106,6 @@ fn test_read(fc: &mut Fc) -> io::Result<()> {
 fn test_r(fc: &mut Fc) -> io::Result<()> {
     fc.api().initiate()?.unwrap();
     sleep(Duration::from_secs(1));
-    fc.api().initiate()?.unwrap();
-    sleep(Duration::from_secs(1));
-    println!("R: {:?}", String::from_utf8_lossy(fc.api().r(2).unwrap().as_ref()));
+    println!("R: {:?}", String::from_utf8_lossy(fc.api().r(None).unwrap().as_ref()));
     Ok(())
 }

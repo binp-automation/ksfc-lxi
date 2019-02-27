@@ -46,9 +46,6 @@ macro_rules! parse_types {
     }};
 }
 
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
