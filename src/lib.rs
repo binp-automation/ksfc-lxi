@@ -45,7 +45,6 @@ impl Deref for Fc {
         &self.device
     }
 }
-
 impl DerefMut for Fc {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.device

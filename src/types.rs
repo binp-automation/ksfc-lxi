@@ -1,10 +1,10 @@
 bitflags! {
     pub struct EventReg: u8 {
-        const OpComplete = 0b00000001;
-        const QueryErr   = 0b00000100;
-        const DevSpecErr = 0b00001000;
-        const ExecErr    = 0b00010000;
-        const CmdErr     = 0b00100000;
-        const PowerOn    = 0b10000000;
+        const OP_COMPLETE  = 0b00000001;
+        const QUERY_ERR    = 0b00000100;
+        const DEV_SPEC_ERR = 0b00001000;
+        const EXEC_ERR     = 0b00010000;
+        const CMD_ERR      = 0b00100000;
+        const POWER_ON     = 0b10000000;
     }
 }
