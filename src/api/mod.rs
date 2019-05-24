@@ -90,6 +90,19 @@ impl<'a> Handle<'a> {
         })
     }
 
+    fn read_text(&mut self) -> io::Result<Vec<u8>> {
+        self.receive()
+        .and_then(|data| {
+            match data {
+                LxiData::Text(buf) => Ok(buf),
+                LxiData::Bin(_) => Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("The response is in binary format"),
+                )),
+            }
+        })
+    }
+
     pub fn fetch(&mut self) -> io::Result<Result<f64, Error>> {
         self.send(b"FETC?").and_then(|()| self.read_value())
     }
@@ -160,6 +173,10 @@ impl<'a> Handle<'a> {
 
     pub fn rst(&mut self) -> io::Result<()> {
         self.send(b"*RST")
+    }
+
+    pub fn idn(&mut self) -> io::Result<Vec<u8>> {
+        self.send(b"*IDN?").and_then(|()| self.read_text())
     }
 
     // Subsystems
