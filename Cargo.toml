@@ -13,6 +13,6 @@ name = "dev_test"
 path = "src/main.rs"
 
 [dependencies]
-lxi = "0.1.2"
+ks-lxi = { git = "https://github.com/binp-automation/ks-lxi-rs", rev = "0f9e60f9345482ea017297038b42cb090924d29f" }
 lazy_static = "1.2.0"
 bitflags = "1.0"
