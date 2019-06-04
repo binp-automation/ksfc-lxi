@@ -35,28 +35,21 @@ impl KsFc {
         (Self { lxi }, r)
     }
 
-    fn check_connect(&mut self) -> crate::Result<()> {
-        if self.lxi.is_connected() {
-            Ok(())
-        } else {
-            self.lxi.connect().map_err(|e| e.into())
-        }
+    pub fn reconnect(&mut self) -> crate::Result<()> {
+        self.lxi.reconnect().map_err(|e| e.into())
     } 
 
     fn send(&mut self, data: &[u8]) -> crate::Result<()> {
-        self.check_connect()
-        .and_then(|()| self.lxi.send(data).map_err(|e| e.into()))
+        self.lxi.send(data).map_err(|e| e.into())
     }
     fn receive(&mut self) -> crate::Result<KsData> {
-        self.check_connect()
-        .and_then(|()| self.lxi.receive().map_err(|e| e.into()))
+        self.lxi.receive().map_err(|e| e.into())
     }
+    #[allow(dead_code)]
     fn send_timeout(&mut self, data: &[u8], to: Duration) -> crate::Result<()> {
-        self.check_connect()
-        .and_then(|()| self.lxi.send_timeout(data, Some(to)).map_err(|e| e.into()))
+        self.lxi.send_timeout(data, Some(to)).map_err(|e| e.into())
     }
     fn receive_timeout(&mut self, to: Duration) -> crate::Result<KsData> {
-        self.check_connect()
-        .and_then(|()| self.lxi.receive_timeout(Some(to)).map_err(|e| e.into()))
+        self.lxi.receive_timeout(Some(to)).map_err(|e| e.into())
     }
 }
