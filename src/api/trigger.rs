@@ -1,7 +1,10 @@
 use std::time::Duration;
 
-use crate::KsFc;
-use crate::format::{parse, into_text, dur_as_secs, secs_as_dur};
+use crate::{
+    KsFc,
+    types::{TriggerSource},
+    format::{parse, into_text, dur_as_secs, secs_as_dur},
+};
 
 
 impl KsFc {
@@ -40,6 +43,21 @@ impl KsFc {
             parse::<f64>(&text)
             .map(|s| secs_as_dur(s).unwrap())
             .map_err(|e| e.into())
+        })
+    }
+
+    /// `TRIGger:SOURse <source>`
+    pub fn trigger_source_set(&mut self, source: TriggerSource) -> crate::Result<()> {
+        let text = format!("TRIG:SOUR {}", match source {
+            TriggerSource::Immediate => "IMM",
+            TriggerSource::External => "EXT",
+            TriggerSource::Bus => "BUS",
+        });
+        self.send(text.as_bytes())
+        .and_then(|()| self.system_error())
+        .and_then(|e| match e {
+            Some(e) => Err(e.into()),
+            None => Ok(()),
         })
     }
 }

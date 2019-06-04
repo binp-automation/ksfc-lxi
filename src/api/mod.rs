@@ -1,5 +1,7 @@
-pub mod basic;
 pub mod ieee488;
+pub mod basic;
+pub mod configure;
+pub mod sense;
 pub mod system;
 pub mod trigger;
 

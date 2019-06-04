@@ -3,7 +3,10 @@
 use std::time::{Duration};
 use std::thread::{sleep};
 
-use ksfc_lxi::{KsFc, Error, types::{EventReg}};
+use ksfc_lxi::{
+    KsFc, Error,
+    types::{EventReg, ChannelNo, TriggerSource},
+};
 
 
 static FREQ: f64 = 7e3;
@@ -60,9 +63,11 @@ fn main() {
             test_init,
             test_fetch,
             test_read,
-            test_trigger_count,
-            test_trigger_delay,
+            test_trig_count,
+            test_trig_delay,
             test_r,
+            test_conf_freq,
+            test_trig_source,
         ]
     );
 }
@@ -107,7 +112,7 @@ fn test_read(fc: &mut KsFc) {
     assert_freq(fc.read().unwrap());
 }
 
-fn test_trigger_count(fc: &mut KsFc) {
+fn test_trig_count(fc: &mut KsFc) {
     fc.trigger_count_set(1).unwrap();
     assert_eq!(fc.trigger_count_get().unwrap(), 1);
 
@@ -122,7 +127,7 @@ fn test_trigger_count(fc: &mut KsFc) {
     }
 }
 
-fn test_trigger_delay(fc: &mut KsFc) {
+fn test_trig_delay(fc: &mut KsFc) {
     fc.trigger_delay_set(Duration::from_secs(10)).unwrap();
     assert_eq!(fc.trigger_delay_get().unwrap().as_secs(), 10);
 
@@ -145,3 +150,19 @@ fn test_r(fc: &mut KsFc) {
     }
 }
 
+fn test_conf_freq(fc: &mut KsFc) {
+    fc.configure_frequency(ChannelNo::Ch1).unwrap();
+    fc.initiate().unwrap();
+    assert_freq(fc.fetch().unwrap());
+
+    fc.configure_frequency(ChannelNo::Ch2).unwrap();
+    fc.initiate().unwrap();
+    assert_freq(fc.fetch().unwrap());
+}
+
+
+fn test_trig_source(fc: &mut KsFc) {
+    fc.trigger_source_set(TriggerSource::Immediate).unwrap();
+    fc.initiate().unwrap();
+    assert_freq(fc.fetch().unwrap());
+}

@@ -8,3 +8,16 @@ bitflags! {
         const POWER_ON     = 0b10000000;
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ChannelNo {
+    Ch1 = 1,
+    Ch2 = 2,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TriggerSource {
+    Immediate,
+    External,
+    Bus,
+}
