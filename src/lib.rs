@@ -36,8 +36,9 @@ impl KsFc {
     }
 
     pub fn reconnect(&mut self) -> crate::Result<()> {
-        self.lxi.reconnect().map_err(|e| e.into())
-    } 
+        match self.lxi.disconnect() { _ => () }
+        self.lxi.connect().map_err(|e| e.into())
+    }
 
     fn send(&mut self, data: &[u8]) -> crate::Result<()> {
         self.lxi.send(data).map_err(|e| e.into())
