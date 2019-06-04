@@ -46,7 +46,7 @@ impl KsFc {
         })
     }
 
-    /// `TRIGger:SOURse <source>`
+    /// `TRIGger:SOURce <source>`
     pub fn trigger_source_set(&mut self, source: TriggerSource) -> crate::Result<()> {
         let text = format!("TRIG:SOUR {}", match source {
             TriggerSource::Immediate => "IMM",
