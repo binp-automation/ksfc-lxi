@@ -1,3 +1,5 @@
+use enum_map::{Enum};
+
 bitflags! {
     pub struct EventReg: u8 {
         const OP_COMPLETE  = 0b00000001;
@@ -9,7 +11,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Enum)]
 pub enum ChannelNo {
     Ch1 = 1,
     Ch2 = 2,

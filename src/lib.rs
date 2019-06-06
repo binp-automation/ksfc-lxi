@@ -2,8 +2,8 @@ pub mod error;
 pub mod deverr;
 
 #[macro_use]
-mod format;
-mod constants;
+pub mod format;
+pub mod constants;
 pub mod types;
 pub mod api;
 
@@ -26,18 +26,22 @@ pub struct KsFc {
 }
 
 impl KsFc {
-    pub fn new(host: &str, port: Option<u16>, timeout: Duration) -> (Self, crate::Result<()>) {
-        let mut lxi = KsDevice::new((
+    pub fn new(host: &str, port: Option<u16>, timeout: Duration) -> Self {
+        Self { lxi: KsDevice::new((
             String::from(host),
             port.unwrap_or(5025),
-        ), Some(timeout));
-        let r = lxi.connect().map_err(|e| e.into());
-        (Self { lxi }, r)
+        ), Some(timeout)) }
     }
 
-    pub fn reconnect(&mut self) -> crate::Result<()> {
-        match self.lxi.disconnect() { _ => () }
+    pub fn connect(&mut self) -> crate::Result<()> {
+        self.disconnect();
         self.lxi.connect().map_err(|e| e.into())
+    }
+    pub fn disconnect(&mut self) {
+        match self.lxi.disconnect() { _ => () }
+    }
+    pub fn is_connected(&mut self) -> bool {
+        self.lxi.is_connected()
     }
 
     fn send(&mut self, data: &[u8]) -> crate::Result<()> {
